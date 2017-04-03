@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -20,23 +21,33 @@ public class Pool {
     public static void main(String[] args) {
         if (args.length < 3) {
             System.out.println(
-                    "Missing Arguments. Expecting: Pool <resultsFile> <picksFile> <totalsFile> [<qualifyingByPoints y|n>]");
+                    "Missing Arguments. Expecting: Pool <resultsFile> <picksFile> <totalsFile> [<qualifyingCanceled y|n>]");
         }
 
         try {
+            String qualifyingCanceledArg;
+            if (args.length == 4) {
+                qualifyingCanceledArg = args[3];
+            } else {
+                Scanner reader = new Scanner(System.in);
+                System.out.println("Was Qualifying canceled? <y|n>: ");
+                qualifyingCanceledArg = reader.next();
+                reader.close();
+            }
+            boolean qualifyingCanceled = qualifyingCanceledArg.toLowerCase().startsWith("y") ? true : false;
+            System.out.println("Calculating results. Qualifying canceled=" + qualifyingCanceled);
+
             Results results = new Results(args[0]);
             Players players = new Players(args[1]);
             Totals totals = new Totals(args[2]);
 
             players.applyTotals(totals);
-            System.out.println("Picks and current Totals:");
+            System.out.println("\nPicks and current Totals:");
             players.getPlayers().stream()
                     .sorted()
                     .forEach(p -> System.out.println(p));
 
-            boolean qualifyingByPoints = (args.length == 4) ? args[3].toLowerCase().startsWith("y") : false;
-
-            players.applyResults(results, qualifyingByPoints);
+            players.applyResults(results, qualifyingCanceled);
             System.out.println("\nPoints and updated totals:");
             players.getPlayers().stream()
                     .sorted()
@@ -132,7 +143,7 @@ public class Pool {
             Integer highest = cars.get(0);
             for (Integer car : cars) {
                 Result r = results.get(car);
-                if ( null == r ) {
+                if (null == r) {
                     continue;
                 }
                 if (r.getPoints() > results.get(highest).getPoints()) {
@@ -142,6 +153,10 @@ public class Pool {
             return highest;
         }
 
+        @Override
+        public String toString() {
+            return "Results [results=" + results + "]";
+        }
     }
 
     private static class Result {
@@ -224,7 +239,7 @@ public class Pool {
             return players;
         }
 
-        public void applyResults(Results results, boolean qualifyingByPoints) {
+        public void applyResults(Results results, boolean qualifyingCanceled) {
             System.out.println("\nApplying Results...");
             players.stream()
                     .forEach(p -> {
@@ -236,7 +251,7 @@ public class Pool {
                                                 + "] missing, may not have qualified!");
                                     } else {
                                         int points = r.getPoints();
-                                        int bonus = !qualifyingByPoints && (r.getStart() < 3) ? 1 : 0;
+                                        int bonus = !qualifyingCanceled && (r.getStart() < 3) ? 1 : 0;
                                         if (bonus == 1) {
                                             System.out.println("Player [" + p.getName()
                                                     + "] received a qualifying bonus point for car [" + c + "]!");
@@ -264,6 +279,10 @@ public class Pool {
                     });
         }
 
+        @Override
+        public String toString() {
+            return "Players [players=" + players + "]";
+        }
     }
 
     private static class Player implements Comparable<Player> {
@@ -275,7 +294,7 @@ public class Pool {
 
         public Player(String player, String car1, String car2, String car3, String car4) {
             super();
-            this.name = player;
+            this.name = player.trim();
             this.picks = Arrays.asList(Integer.valueOf(car1), Integer.valueOf(car2), Integer.valueOf(car3),
                     Integer.valueOf(car4));
         }
@@ -379,6 +398,11 @@ public class Pool {
         public Map<String, Total> getTotals() {
             return totals;
         }
+
+        @Override
+        public String toString() {
+            return "Totals [totals=" + totals + "]";
+        }
     }
 
     private static class Total {
@@ -388,7 +412,7 @@ public class Pool {
 
         public Total(String player, String points, String balance) {
             super();
-            this.player = player;
+            this.player = player.trim();
             this.total = Integer.valueOf(points);
             if ("even".equals(balance.toLowerCase())) {
                 this.balance = 0;
