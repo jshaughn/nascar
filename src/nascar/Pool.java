@@ -38,6 +38,7 @@ public class Pool {
             System.out.println("Calculating results. Qualifying canceled=" + qualifyingCanceled);
 
             Results results = new Results(args[0]);
+            System.out.println(results);
             Players players = new Players(args[1]);
             Totals totals = new Totals(args[2]);
 
@@ -111,7 +112,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+[a-zA-Z]+.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
@@ -121,7 +122,7 @@ public class Pool {
                 stream.forEach(l -> {
                     if (!l.trim().isEmpty()) {
                         matcher.reset(l);
-                        if (!matcher.matches() || matcher.groupCount() != 4) {
+                        if (!matcher.matches() || matcher.groupCount() != 5) {
                             throw new IllegalArgumentException("Invalid line in results file: " + l);
                         }
                         Result r = new Result(matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4));
@@ -155,11 +156,15 @@ public class Pool {
 
         @Override
         public String toString() {
-            return "Results [results=" + results + "]";
+            StringBuffer sb = new StringBuffer("Results:");
+            results.values().stream()
+                    .sorted()
+                    .forEach(r -> sb.append(r.toString()));
+            return sb.toString();
         }
     }
 
-    private static class Result {
+    private static class Result implements Comparable<Result> {
         int carNumber;
         int start;
         int finish;
@@ -191,8 +196,13 @@ public class Pool {
 
         @Override
         public String toString() {
-            return "Result [start=" + start + ", finish=" + finish + ", carNumber=" + carNumber + ", points=" + points
+            return "\nResult [finish=" + finish + ", carNumber=" + carNumber + ", points=" + points + ", start=" + start 
                     + "]";
+        }
+
+        @Override
+        public int compareTo(Result o) {
+            return Integer.compare(finish, o.finish);
         }
     }
 
@@ -256,6 +266,8 @@ public class Pool {
                                             System.out.println("Player [" + p.getName()
                                                     + "] received a qualifying bonus point for car [" + c + "]!");
                                         }
+                                        System.out.println(
+                                                "Player [" + p.getName() + "] car=" + c + ", points=" + points);
                                         p.setPoints(p.getPoints() + points + bonus);
                                     }
                                 });
