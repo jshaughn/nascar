@@ -18,6 +18,11 @@ import java.util.stream.Stream;
 
 public class Pool {
 
+    static private final int $ANTE = 5;
+    static private final int $FIRST = 15;
+    static private final int $SECOND = 10;
+    static private final int $THIRD = 5;
+
     public static void main(String[] args) {
         if (args.length < 3) {
             System.out.println(
@@ -275,11 +280,11 @@ public class Pool {
                     });
 
             List<Player> sortedPlayers = players.stream().sorted().collect(Collectors.toList());
-            sortedPlayers.get(0).setBalance(sortedPlayers.get(0).getBalance() + 20);
-            sortedPlayers.get(1).setBalance(sortedPlayers.get(1).getBalance() + 10);
-            sortedPlayers.get(2).setBalance(sortedPlayers.get(2).getBalance() + 5);
+            sortedPlayers.get(0).deposit($FIRST);
+            sortedPlayers.get(1).deposit($SECOND);
+            sortedPlayers.get(2).deposit($THIRD);
             for (Player p : sortedPlayers.subList(3, sortedPlayers.size())) {
-                p.setBalance(p.getBalance() - 5);
+                p.debit($ANTE);
             }
         }
 
@@ -349,6 +354,14 @@ public class Pool {
             }
 
             return "+$" + balance;
+        }
+
+        public void deposit(int amount) {
+            this.balance += amount;
+        }
+
+        public void debit(int amount) {
+            this.balance -= amount;
         }
 
         public void setBalance(int balance) {
