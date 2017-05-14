@@ -24,37 +24,100 @@ public class Pool {
     static private final int $THIRD = 5;
 
     public static void main(String[] args) {
-        if (args.length < 3) {
-            System.out.println(
-                    "Missing Arguments. Expecting: Pool <resultsFile> <picksFile> <totalsFile> [<qualifyingCanceled y|n>]");
+        if (args.length != 2) {
+            usage();
+            return;
         }
 
-        try {
-            String qualifyingCanceledArg;
-            if (args.length == 4) {
-                qualifyingCanceledArg = args[3];
-            } else {
-                Scanner reader = new Scanner(System.in);
-                System.out.println("Was Qualifying canceled? <y|n>: ");
-                qualifyingCanceledArg = reader.next();
-                reader.close();
+        switch (args[0]) {
+            case "--results": {
+                handleResults(args[1]);
+                return;
             }
+            case "--picks": {
+                handleRawPicks(args[1]);
+                return;
+            }
+            default:
+                usage();
+        }
+    }
+
+    private static void usage() {
+        System.out.println("Invalid Argument. Usage:");
+        System.out.println("  option 1:  --results <file prefix for -results.txt, -picks.txt, -standings.txt>");
+        System.out.println("  option 2:  --picks <file path> prefix>");
+    }
+
+    private static void handleRawPicks(String filePrefix) {
+        try {
+            File rawPicksfile = new File(filePrefix + "-raw-picks.txt");
+            if (!rawPicksfile.canRead()) {
+                throw new IllegalArgumentException("Can't read raw-picks file: " + rawPicksfile.getAbsolutePath());
+            }
+            File picksFile = new File(filePrefix + "-picks.txt");
+            if (picksFile.exists()) {
+                throw new IllegalArgumentException(
+                        "Can't write picks file, it already exists: " + picksFile.getAbsolutePath());
+            }
+            File resultsFile = new File(filePrefix + "-results.txt");
+            File standingsFile = new File(filePrefix + "-standings.txt");
+
+            String regex = "#\\d+,\\s([a-zA-Z ]+)\\b(takes|Takes)\\b\\b[. ].*?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*";
+            Pattern pattern = Pattern.compile(regex);
+            Matcher matcher = pattern.matcher("");
+            List<String> picks = new ArrayList<>();
+
+            //read file into stream, try-with-resources
+            try (Stream<String> stream = Files.lines(Paths.get(rawPicksfile.toURI()))) {
+
+                stream.forEach(l -> {
+                    if (!l.trim().isEmpty()) {
+                        System.out.println(l);
+                        matcher.reset(l);
+                        if (!matcher.matches() || matcher.groupCount() != 6) {
+                            throw new IllegalArgumentException("Invalid line in picks file: " + l);
+                        }
+                        String player = String.format("%-20s", matcher.group(1)).replace(' ', '.');
+                        String fl = String.format("%s%2s, %2s, %2s, %2s", player, matcher.group(3),
+                                matcher.group(4), matcher.group(5), matcher.group(6)); 
+                        picks.add(fl);
+                    }
+                });
+                picks.stream().forEach(fl -> System.out.println(fl));
+                Files.write(Paths.get(picksFile.toURI()), picks);
+
+            } catch (IOException e) {
+                throw new RuntimeException(e.getMessage());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Failed to process raw-picks files: " + e.getMessage());
+        }
+    }
+
+    private static void handleResults(String filePrefix) {
+        try {
+            Scanner reader = new Scanner(System.in);
+            System.out.println("Was Qualifying canceled? <y|n>: ");
+            String qualifyingCanceledArg = reader.next();
+            reader.close();
             boolean qualifyingCanceled = qualifyingCanceledArg.toLowerCase().startsWith("y") ? true : false;
             System.out.println("Calculating results. Qualifying canceled=" + qualifyingCanceled);
 
-            Results results = new Results(args[0]);
+            Results results = new Results(filePrefix + "-results.txt");
             System.out.println(results);
-            Players players = new Players(args[1]);
-            Totals totals = new Totals(args[2]);
+            Players players = new Players(filePrefix + "-picks.txt");
+            Standings standings = new Standings(filePrefix + "-standings.txt");
 
-            players.applyTotals(totals);
-            System.out.println("\nPicks and current Totals:");
+            players.applyStandings(standings);
+            System.out.println("\nPicks and current Standings:");
             players.getPlayers().stream()
                     .sorted()
                     .forEach(p -> System.out.println(p));
 
             players.applyResults(results, qualifyingCanceled);
-            System.out.println("\nPoints and updated totals:");
+            System.out.println("\nPoints and updated Standings:");
             players.getPlayers().stream()
                     .sorted()
                     .forEach(p -> System.out.println(p));
@@ -117,7 +180,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine)\\b.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine|Suspension|Oil Pump|Transmission)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
@@ -201,7 +264,8 @@ public class Pool {
 
         @Override
         public String toString() {
-            return "\nResult [finish=" + finish + ", carNumber=" + carNumber + ", points=" + points + ", start=" + start 
+            return "\nResult [finish=" + finish + ", carNumber=" + carNumber + ", points=" + points + ", start="
+                    + start
                     + "]";
         }
 
@@ -288,11 +352,11 @@ public class Pool {
             }
         }
 
-        public void applyTotals(Totals totals) {
+        public void applyStandings(Standings standings) {
             players.stream()
                     .forEach(p -> {
-                        p.setBalance(totals.getTotals().get(p.getName()).getBalance());
-                        p.setTotal(totals.getTotals().get(p.getName()).getTotal());
+                        p.setBalance(standings.getTotals().get(p.getName()).getBalance());
+                        p.setTotal(standings.getTotals().get(p.getName()).getTotal());
                     });
         }
 
@@ -382,18 +446,18 @@ public class Pool {
 
     }
 
-    private static class Totals {
+    private static class Standings {
         File file;
-        private Map<String, Total> totals = new HashMap<>();
+        private Map<String, Standing> totals = new HashMap<>();
 
-        Totals(String totals) {
+        Standings(String totals) {
             this.file = new File(totals);
             process();
         }
 
         private void process() {
             if (!file.canRead()) {
-                throw new IllegalArgumentException("Can't read totals file: " + file.getAbsolutePath());
+                throw new IllegalArgumentException("Can't read standings file: " + file.getAbsolutePath());
             }
 
             String regex = "([a-zA-Z ]+)\\..*?(\\d+).*?([-+$Even\\d]+).*";
@@ -409,7 +473,7 @@ public class Pool {
                         if (!matcher.matches() || matcher.groupCount() != 3) {
                             throw new IllegalArgumentException("Invalid line in totals file: " + l);
                         }
-                        Total t = new Total(matcher.group(1), matcher.group(2), matcher.group(3));
+                        Standing t = new Standing(matcher.group(1), matcher.group(2), matcher.group(3));
                         totals.put(t.getPlayer(), t);
                         //System.out.println(t);
                     }
@@ -420,7 +484,7 @@ public class Pool {
             }
         }
 
-        public Map<String, Total> getTotals() {
+        public Map<String, Standing> getTotals() {
             return totals;
         }
 
@@ -430,12 +494,12 @@ public class Pool {
         }
     }
 
-    private static class Total {
+    private static class Standing {
         String player;
         int total;
         int balance;
 
-        public Total(String player, String points, String balance) {
+        public Standing(String player, String points, String balance) {
             super();
             this.player = player.trim();
             this.total = Integer.valueOf(points);
