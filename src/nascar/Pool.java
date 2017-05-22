@@ -61,7 +61,15 @@ public class Pool {
                         "Can't write picks file, it already exists: " + picksFile.getAbsolutePath());
             }
             File resultsFile = new File(filePrefix + "-results.txt");
+            if ( !resultsFile.createNewFile()) {
+                throw new IllegalArgumentException(
+                        "Can't create results file, it already exists: " + resultsFile.getAbsolutePath());
+            }
             File standingsFile = new File(filePrefix + "-standings.txt");
+            if ( !standingsFile.createNewFile()) {
+                throw new IllegalArgumentException(
+                        "Can't create standings file, it already exists: " + standingsFile.getAbsolutePath());
+            }
 
             String regex = "#\\d+,\\s([a-zA-Z ]+)\\b(takes|Takes)\\b\\b[. ].*?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*";
             Pattern pattern = Pattern.compile(regex);
