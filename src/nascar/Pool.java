@@ -188,7 +188,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine|Suspension|Oil Pump|Transmission)\\b.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine|Suspension|Oil Pump|Transmission|Rear End)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
