@@ -24,7 +24,7 @@ public class Pool {
     static private final int $THIRD = 5;
 
     public static void main(String[] args) {
-        if (args.length != 2) {
+        if (args.length != 2 && args.length != 3) {
             usage();
             return;
         }
@@ -35,7 +35,7 @@ public class Pool {
                 return;
             }
             case "--picks": {
-                handleRawPicks(args[1]);
+                handleRawPicks(args[1], ((args.length == 3) && (args[2].toLowerCase().equals("--force"))));
                 return;
             }
             default:
@@ -46,30 +46,33 @@ public class Pool {
     private static void usage() {
         System.out.println("Invalid Argument. Usage:");
         System.out.println("  option 1:  --results <file prefix for -results.txt, -picks.txt, -standings.txt>");
-        System.out.println("  option 2:  --picks <file path> prefix>");
+        System.out.println("  option 2:  --picks <file path> prefix> [--force]");
     }
 
-    private static void handleRawPicks(String filePrefix) {
+    private static void handleRawPicks(String filePrefix, boolean forceFileCreate) {
         try {
             File rawPicksfile = new File(filePrefix + "-raw-picks.txt");
             if (!rawPicksfile.canRead()) {
                 throw new IllegalArgumentException("Can't read raw-picks file: " + rawPicksfile.getAbsolutePath());
             }
             File picksFile = new File(filePrefix + "-picks.txt");
-            if (picksFile.exists()) {
+            if (!forceFileCreate && picksFile.exists()) {
                 throw new IllegalArgumentException(
                         "Can't write picks file, it already exists: " + picksFile.getAbsolutePath());
             }
             File resultsFile = new File(filePrefix + "-results.txt");
-            if ( !resultsFile.createNewFile()) {
+            if (!forceFileCreate && !resultsFile.createNewFile()) {
                 throw new IllegalArgumentException(
                         "Can't create results file, it already exists: " + resultsFile.getAbsolutePath());
             }
             File standingsFile = new File(filePrefix + "-standings.txt");
-            if ( !standingsFile.createNewFile()) {
+            if (!forceFileCreate && !standingsFile.createNewFile()) {
                 throw new IllegalArgumentException(
                         "Can't create standings file, it already exists: " + standingsFile.getAbsolutePath());
             }
+            picksFile.delete();
+            resultsFile.delete();
+            standingsFile.delete();
 
             String regex = "#\\d+,\\s([a-zA-Z ]+)\\b(takes|Takes)\\b\\b[. ].*?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*";
             Pattern pattern = Pattern.compile(regex);
@@ -94,6 +97,9 @@ public class Pool {
                 });
                 picks.stream().forEach(fl -> System.out.println(fl));
                 Files.write(Paths.get(picksFile.toURI()), picks);
+
+                resultsFile.createNewFile();
+                standingsFile.createNewFile();
 
             } catch (IOException e) {
                 throw new RuntimeException(e.getMessage());
@@ -188,7 +194,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine|Suspension|Oil Pump|Transmission|Rear End)\\b.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Engine|Suspension|Oil Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
@@ -449,7 +455,13 @@ public class Pool {
         @Override
         public int compareTo(Player o) {
             int res = Integer.compare(o.getPoints(), this.points);
-            return res != 0 ? res : Integer.compare(o.getTotal(), this.total);
+            if ( res != 0 ) {
+                return res;
+            }
+            String msg = String.format("Tie detected between [%s,%d] and [%s,%d]. %s picks first.",
+                    this.name, this.total, o.name, o.total, (this.total < o.total ? this.name : o.name));
+            System.out.println(msg);
+            return Integer.compare(o.getTotal(), this.total);
         }
 
     }
