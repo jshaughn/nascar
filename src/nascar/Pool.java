@@ -91,7 +91,7 @@ public class Pool {
                         }
                         String player = String.format("%-20s", matcher.group(1)).replace(' ', '.');
                         String fl = String.format("%s%2s, %2s, %2s, %2s", player, matcher.group(3),
-                                matcher.group(4), matcher.group(5), matcher.group(6)); 
+                                matcher.group(4), matcher.group(5), matcher.group(6));
                         picks.add(fl);
                     }
                 });
@@ -125,36 +125,62 @@ public class Pool {
             Standings standings = new Standings(filePrefix + "-standings.txt");
 
             players.applyStandings(standings);
+            
             System.out.println("\nPicks and current Standings:");
             players.getPlayers().stream()
-                    .sorted()
+                    .sorted(new Comparator<Player>() {
+                        public int compare(Player o1, Player o2) {
+                            return Integer.compare(o2.getTotal(), o1.getTotal());
+                        }
+                    })
                     .forEach(p -> System.out.println(p));
 
             players.applyResults(results, qualifyingCanceled);
-            System.out.println("\nPoints and updated Standings:");
-            players.getPlayers().stream()
-                    .sorted()
-                    .forEach(p -> System.out.println(p));
-
-            System.out.println("\nResults E-Mail:");
+            
             List<Player> sortedPlayers = players.getPlayers().stream()
                     .sorted()
                     .collect(Collectors.toList());
-            Player player4 = sortedPlayers.get(3);
-            for (int i = 4; (i < sortedPlayers.size()); ++i) {
-                if (player4.getPoints() == sortedPlayers.get(i).getPoints()) {
-                    player4 = sortedPlayers.get(i);
+
+            System.out.println("\nInitial Results ordered for payout:\n");
+            for (int i = sortedPlayers.size(); (i > 0); --i) {
+                Player p = sortedPlayers.get(i - 1);
+                String s = String.format("#%d, %s with %d and yearly %d", i, p.getName(), p.getPoints(), p.getTotal());
+                System.out.println(s);
+            }
+
+            System.out.println("\nFinal Results ordered for payout and picks");
+
+            for (int i = sortedPlayers.size() - 1; (i >= 0); --i) {
+                Player p = sortedPlayers.get(i);
+                String.format("#%d, %s, %d, %d", i + 1, p.getName(), p.getPoints(), p.getTotal());
+            }
+
+            // now that the preferred spots (1-4) are set, it's now better to have a lower finish for a better pick.
+            for (int i = 5; (i < sortedPlayers.size()); ++i) {
+                Player pLo = sortedPlayers.get(i - 1);
+                Player pHi = sortedPlayers.get(i);
+                if (pHi.points == pLo.points) {
+                    String msg = String.format(
+                            "\nTie [%d points] detected between [%s,%d] and [%s,%d]. Pick preference goes to %s.",
+                            pLo.points, pLo.name, pLo.total, pHi.name, pHi.total, pLo.name);
+                    System.out.println(msg);
+                    sortedPlayers.set(i - 1, pHi);
+                    sortedPlayers.set(i, pLo);
                 }
             }
+
+            System.out.println("\nResults E-Mail:");
+            Player player4 = sortedPlayers.get(3);
             String s = String.format("#%d, %s with %d takes..........%d", 4, player4.getName(), player4.getPoints(),
                     results.getHighestCar(player4.getPicks()));
             System.out.println(s);
-            for (int i = (sortedPlayers.size() - 1); i >= 0; --i) {
-                Player p = sortedPlayers.get(i);
-                if (p.equals(player4)) {
+
+            for (int i = sortedPlayers.size(); (i > 0); --i) {
+                if (4 == i) {
                     continue;
                 }
-                s = String.format("#%d, %s with %d takes..........%d", i + 1, p.getName(), p.getPoints(),
+                Player p = sortedPlayers.get(i - 1);
+                s = String.format("#%d, %s with %d takes..........%d", i, p.getName(), p.getPoints(),
                         results.getHighestCar(p.getPicks()));
                 System.out.println(s);
             }
@@ -452,18 +478,20 @@ public class Pool {
                     + ", balance=" + balance + "]";
         }
 
+        // order by weekly desc, then yearly asc (so, for a tie, lowest yearly points bubbles up to best payout 
         @Override
         public int compareTo(Player o) {
             int res = Integer.compare(o.getPoints(), this.points);
-            if ( res != 0 ) {
+            if (res != 0) {
                 return res;
             }
-            String msg = String.format("Tie detected between [%s,%d] and [%s,%d]. %s picks first.",
-                    this.name, this.total, o.name, o.total, (this.total < o.total ? this.name : o.name));
-            System.out.println(msg);
-            return Integer.compare(o.getTotal(), this.total);
+            if (0 != this.points) {
+                String msg = String.format("\nTie [%d points] between [%s,%d] and [%s,%d]. Preferring %s for payout.",
+                        this.points, this.name, this.total, o.name, o.total, o.name);
+                System.out.println(msg);
+            }
+            return Integer.compare(this.total, o.getTotal());
         }
-
     }
 
     private static class Standings {
