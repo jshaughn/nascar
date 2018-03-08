@@ -24,18 +24,28 @@ public class Pool {
     static private final int $THIRD = 5;
 
     public static void main(String[] args) {
-        if (args.length != 2 && args.length != 3) {
+        if (args.length == 0) {
             usage();
             return;
         }
 
         switch (args[0]) {
             case "--results": {
-                handleResults(args[1]);
+                if (args.length != 4) {
+                    usage();
+                    return;
+                }
+                
+                handleResults(args[1], args[2], args[3]);
                 return;
             }
             case "--picks": {
-                handleRawPicks(args[1], ((args.length == 3) && (args[2].toLowerCase().equals("--force"))));
+                if (args.length != 2 && args.length != 3) {
+                    usage();
+                    return;
+                }
+
+                handleRawPicks(args[1], args[2], ((args.length == 4) && (args[3].toLowerCase().equals("--force"))));
                 return;
             }
             default:
@@ -45,12 +55,13 @@ public class Pool {
 
     private static void usage() {
         System.out.println("Invalid Argument. Usage:");
-        System.out.println("  option 1:  --results <file prefix for -results.txt, -picks.txt, -standings.txt>");
-        System.out.println("  option 2:  --picks <file path> prefix> [--force]");
+        System.out.println("  option 1:  --results <race-num> <track> <next-track>");
+        System.out.println("  option 2:  --picks <race-num> <track> [--force]");
     }
 
-    private static void handleRawPicks(String filePrefix, boolean forceFileCreate) {
+    private static void handleRawPicks(String raceNum, String track, boolean forceFileCreate) {
         try {
+            String filePrefix = "files\\" + raceNum + "-" + track; 
             File rawPicksfile = new File(filePrefix + "-raw-picks.txt");
             if (!rawPicksfile.canRead()) {
                 throw new IllegalArgumentException("Can't read raw-picks file: " + rawPicksfile.getAbsolutePath());
@@ -65,14 +76,8 @@ public class Pool {
                 throw new IllegalArgumentException(
                         "Can't create results file, it already exists: " + resultsFile.getAbsolutePath());
             }
-            File standingsFile = new File(filePrefix + "-standings.txt");
-            if (!forceFileCreate && !standingsFile.createNewFile()) {
-                throw new IllegalArgumentException(
-                        "Can't create standings file, it already exists: " + standingsFile.getAbsolutePath());
-            }
             picksFile.delete();
             resultsFile.delete();
-            standingsFile.delete();
 
             String regex = "#\\d+,\\s([a-zA-Z ]+)\\b(takes|Takes)\\b\\b[. ].*?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*";
             Pattern pattern = Pattern.compile(regex);
@@ -99,7 +104,6 @@ public class Pool {
                 Files.write(Paths.get(picksFile.toURI()), picks);
 
                 resultsFile.createNewFile();
-                standingsFile.createNewFile();
 
             } catch (IOException e) {
                 throw new RuntimeException(e.getMessage());
@@ -110,7 +114,7 @@ public class Pool {
         }
     }
 
-    private static void handleResults(String filePrefix) {
+    private static void handleResults(String raceNum, String track, String nextTrack) {
         try {
             Scanner reader = new Scanner(System.in);
             System.out.println("Was Qualifying canceled? <y|n>: ");
@@ -119,10 +123,15 @@ public class Pool {
             boolean qualifyingCanceled = qualifyingCanceledArg.toLowerCase().startsWith("y") ? true : false;
             System.out.println("Calculating results. Qualifying canceled=" + qualifyingCanceled);
 
-            Results results = new Results(filePrefix + "-results.txt");
+            String filePrefix = "files\\" + raceNum + "-" + track;
+            Results results = new Results( filePrefix + "-results.txt");
             System.out.println(results);
             Players players = new Players(filePrefix + "-picks.txt");
             Standings standings = new Standings(filePrefix + "-standings.txt");
+            int rn = Integer.valueOf(raceNum) + 1; 
+            String nextRaceNum = (rn < 10) ? "0" + rn : "" + rn;
+            File nextRawPicksFile = new File("files\\" + nextRaceNum + "-" + nextTrack + "-raw-picks.txt");
+            File nextStandingsFile = new File("files\\" + nextRaceNum + "-" + nextTrack + "-standings.txt");
 
             players.applyStandings(standings);
             
@@ -194,11 +203,17 @@ public class Pool {
                     })
                     .collect(Collectors.toList());
 
+            ArrayList<String>  nextStandings = new ArrayList<>(10);
             for (int i = 0; i < sortedPlayers.size(); ++i) {
                 Player p = sortedPlayers.get(i);
-                s = String.format("%s.........%d.....%s", p.getName(), p.getTotal(), p.getBalanceString());
+                String player = String.format("%-15s", p.getName()).replace(' ', '.');
+                s = String.format("%s%4d.....%s", player, p.getTotal(), p.getBalanceString());
+                nextStandings.add(s);
                 System.out.println(s);
             }
+            
+            nextRawPicksFile.createNewFile();
+            Files.write(Paths.get(nextStandingsFile.toURI()), nextStandings);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -220,7 +235,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Parked|Engine|Suspension|Oil Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes|Clutch|Rear Gear|Axle|Electrical)\\b.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Parked|Engine|Suspension|Oil Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes|Clutch|Rear Gear|Axle|Electrical|Too Slow|Steering)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
