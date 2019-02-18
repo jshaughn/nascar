@@ -235,7 +235,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Parked|Engine|Suspension|Oil Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes|Clutch|Rear Gear|Axle|Electrical|Too Slow|Steering)\\b.*";
+            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Parked|Engine|Suspension|Oil Pump|Oil Leak|PE Fuel Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes|Clutch|Rear Gear|Axle|Electrical|Too Slow|Steering|Overheating|Drivetrain|Fuel Pump|Oil Cooler|Wheel Hub|Dvp|Front Hub|Radiator)\\b.*";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
