@@ -235,7 +235,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read results file: " + file.getAbsolutePath());
             }
 
-            String regex = "\\s*(\\d+)\\s+(\\d+)\\s+(\\d+).*?(\\d+)\\s+\\b(Running|Accident|Parked|Engine|Suspension|Oil Pump|Oil Leak|PE Fuel Pump|Transmission|Rear End|Handling|Vibration|Drive Shaft|Brakes|Clutch|Rear Gear|Axle|Electrical|Too Slow|Steering|Overheating|Drivetrain|Fuel Pump|Oil Cooler|Wheel Hub|Dvp|Front Hub|Radiator)\\b.*";
+            String regex = "^\\s*(\\d+).*?(\\d+).*?\\d+\\s+(\\d+)\\s+\\d+\\s+(\\d+).*$";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
@@ -245,8 +245,11 @@ public class Pool {
                 stream.forEach(l -> {
                     if (!l.trim().isEmpty()) {
                         matcher.reset(l);
-                        if (!matcher.matches() || matcher.groupCount() != 5) {
-                            throw new IllegalArgumentException("Invalid line in results file: " + l);
+                        if (!matcher.matches()) {
+                            throw new IllegalArgumentException("Line failed to match: " + l);
+                        }
+                        if (matcher.groupCount() != 4) {
+                            throw new IllegalArgumentException("Line resulted in only [" + matcher.groupCount() + "] groups: " + l);
                         }
                         Result r = new Result(matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4));
                         results.put(r.getCarNumber(), r);
@@ -293,7 +296,7 @@ public class Pool {
         int finish;
         int points;
 
-        public Result(String finish, String start, String carNumber, String points) {
+        public Result(String finish, String carNumber, String start,  String points) {
             super();
             this.finish = Integer.valueOf(finish);
             this.start = Integer.valueOf(start);
@@ -344,7 +347,7 @@ public class Pool {
                 throw new IllegalArgumentException("Can't read picks file: " + file.getAbsolutePath());
             }
 
-            String regex = "([a-zA-Z ]+)\\..*?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*";
+            String regex = "^\\s*([a-zA-Z ]+)[\\.\\s]+?(\\d+).*?(\\d+).*?(\\d+).*?(\\d+).*$";
             Pattern pattern = Pattern.compile(regex);
             Matcher matcher = pattern.matcher("");
 
